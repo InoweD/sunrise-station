@@ -56,11 +56,14 @@ public sealed class ConsumableAmmoSystem : EntitySystem
         if (itemsToConsume == 0)
             return;
 
+        var potentialChargesAdded = (int)Math.Floor(itemsToConsume * chargesPerItem);
+
+        if (potentialChargesAdded <= 0)
+            return;
         if (!_stack.Use(args.Used, itemsToConsume, stack))
             return;
 
-        var actualChargesAdded = (int)Math.Floor(itemsToConsume * chargesPerItem);
-
+        var actualChargesAdded = potentialChargesAdded;
         var roomLeft = ent.Comp.MaxCharges - ent.Comp.CurrentCharges;
         actualChargesAdded = Math.Min(actualChargesAdded, roomLeft);
 

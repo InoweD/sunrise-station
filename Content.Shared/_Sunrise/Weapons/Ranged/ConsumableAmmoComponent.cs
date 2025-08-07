@@ -25,5 +25,5 @@ public sealed partial class ConsumableAmmoComponent : Component
     [DataField, ViewVariables]
     public float ItemsPerCharge = 1f;
     [DataField, ViewVariables]
-    public string ProjectilePrototypeId;
+    public EntProtoId ProjectilePrototypeId;
 }
