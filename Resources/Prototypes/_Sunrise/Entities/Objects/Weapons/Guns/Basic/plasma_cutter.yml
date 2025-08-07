@@ -22,15 +22,11 @@
       - SheetPlasma1
       - SheetPlasma10
       - SheetPlasma
-    multiplerLoadableItemIds:
+    multiplierLoadableItemIds:
       - PlasmaOre1
       - PlasmaOre
-    multipler: 2
+    multiplier: 2
     itemsPerCharge: 1
-    soundCharge:
-      path: /Audio/Machines/chime.ogg
-    soundEmpty:
-      path: /Audio/Weapons/Guns/Empty/empty.ogg
     projectilePrototypeId: BulletPlasma
   - type: GunWieldBonus
     minAngle: -23

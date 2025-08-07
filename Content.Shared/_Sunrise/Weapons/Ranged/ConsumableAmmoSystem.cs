@@ -1,134 +1,110 @@
-using Robust.Shared.GameObjects;
-using Content.Shared._Sunrise.Weapons.Ranged;
-using Content.Shared.Interaction.Events;
-using Content.Shared.Stacks;
-using Content.Shared.Popups;
-using Content.Shared.Weapons.Ranged.Events;
-using Robust.Shared.Audio;
-using Robust.Shared.Player;
-using Robust.Shared.Prototypes;
-using System;
-using Content.Shared.Projectiles;
-using Content.Shared.Interaction;
-using Content.Shared.Weapons.Ranged.Components;
 using Content.Shared.Examine;
+using Content.Shared.Interaction;
+using Content.Shared.Popups;
+using Content.Shared.Stacks;
+using Content.Shared.Weapons.Ranged.Components;
+using Content.Shared.Weapons.Ranged.Events;
 
-namespace Content.Shared._Sunrise.Weapons.Ranged
+namespace Content.Shared._Sunrise.Weapons.Ranged;
+
+public sealed class ConsumableAmmoSystem : EntitySystem
 {
-    public sealed class ConsumableAmmoSystem : EntitySystem
+    [Dependency] private readonly SharedPopupSystem _popup = default!;
+    [Dependency] private readonly SharedStackSystem _stack = default!;
+
+    public override void Initialize()
     {
-        [Dependency] private readonly IEntityManager _entityManager = default!;
-        [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
-        [Dependency] private readonly SharedStackSystem _stackSystem = default!;
-        [Dependency] private readonly IPrototypeManager _prototypeManager = default!;
-        [Dependency] private readonly SharedProjectileSystem _projectileSystem = default!;
-        public override void Initialize()
+        base.Initialize();
+        SubscribeLocalEvent<ConsumableAmmoComponent, InteractUsingEvent>(OnLoadAmmo);
+        SubscribeLocalEvent<ConsumableAmmoComponent, ShotAttemptedEvent>(OnShotAttempted);
+        SubscribeLocalEvent<ConsumableAmmoComponent, TakeAmmoEvent>(OnTakeAmmo);
+        SubscribeLocalEvent<ConsumableAmmoComponent, ExaminedEvent>(OnExamine);
+    }
+
+    private void OnLoadAmmo(Entity<ConsumableAmmoComponent> ent, ref InteractUsingEvent args)
+    {
+        if (args.Handled)
+            return;
+
+        if (!TryComp<StackComponent>(args.Used, out var stack))
+            return;
+
+        var itemProtoId = Prototype(args.Used);
+
+        if (itemProtoId == null)
+            return;
+
+        if (!ent.Comp.LoadableItemIds.Contains(itemProtoId) && !ent.Comp.MultiplierLoadableItemIds.Contains(itemProtoId))
+            return;
+
+        if (ent.Comp.CurrentCharges >= ent.Comp.MaxCharges)
         {
-            base.Initialize();
-            SubscribeLocalEvent<ConsumableAmmoComponent, InteractUsingEvent>(OnLoadAmmo);
-            SubscribeLocalEvent<ConsumableAmmoComponent, ShotAttemptedEvent>(OnShotAttempted);
-            SubscribeLocalEvent<ConsumableAmmoComponent, TakeAmmoEvent>(OnTakeAmmo);
-            SubscribeLocalEvent<ConsumableAmmoComponent, ExaminedEvent>(OnExamine);
-        }
-
-        private void OnLoadAmmo(EntityUid uid, ConsumableAmmoComponent ammo, InteractUsingEvent args)
-        {
-            if (args.Handled)
-            {
-                return;
-            }
-
-            var itemInHand = args.Used;
-
-            if (!TryComp<StackComponent>(itemInHand, out var stack))
-            {
-                return;
-            }
-
-            var itemProtoId = _entityManager.GetComponent<MetaDataComponent>(itemInHand).EntityPrototype?.ID ?? string.Empty;
-
-            if (!ammo.LoadableItemIds.Contains(itemProtoId) && !ammo.MultiplerLoadableItemIds.Contains(itemProtoId))
-            {
-                return;
-            }
-
-            if (ammo.CurrentCharges >= ammo.MaxCharges)
-            {
-                _popupSystem.PopupPredicted(Loc.GetString("consumable-ammo-fully-charged"), uid, args.User);
-                args.Handled = true;
-                return;
-            }
-
-            var chargesPerItem = 1.0f / ammo.ItemsPerCharge;
-            if (ammo.MultiplerLoadableItemIds.Contains(itemProtoId))
-            {
-                chargesPerItem *= ammo.Multipler;
-            }
-
-            var chargesCanAdd = ammo.MaxCharges - ammo.CurrentCharges;
-            var itemsNeeded = (int)Math.Ceiling(chargesCanAdd / chargesPerItem);
-            var itemsToConsume = Math.Min(itemsNeeded, stack.Count);
-
-            if (itemsToConsume == 0)
-            {
-                return;
-            }
-
-            if (!_stackSystem.Use(itemInHand, itemsToConsume, stack))
-            {
-                return;
-            }
-
-            var actualChargesAdded = (int)Math.Floor(itemsToConsume * chargesPerItem);
-
-            var roomLeft = ammo.MaxCharges - ammo.CurrentCharges;
-            actualChargesAdded = Math.Min(actualChargesAdded, roomLeft);
-
-            ammo.CurrentCharges += actualChargesAdded;
-
-            _popupSystem.PopupPredicted(Loc.GetString("consumable-ammo-charged", ("chargesAdded", actualChargesAdded), ("currentCharges", ammo.CurrentCharges), ("maxCharges", ammo.MaxCharges)), uid, args.User);
-
+            _popup.PopupPredicted(Loc.GetString("consumable-ammo-fully-charged"), ent.Owner, args.User);
             args.Handled = true;
-            Dirty(uid, ammo);
+            return;
         }
 
-        private void OnShotAttempted(EntityUid uid, ConsumableAmmoComponent ammo, ref ShotAttemptedEvent args)
+        var chargesPerItem = 1.0f / ent.Comp.ItemsPerCharge;
+
+        if (ent.Comp.MultiplierLoadableItemIds.Contains(itemProtoId))
+            chargesPerItem *= ent.Comp.Multiplier;
+
+        var chargesCanAdd = ent.Comp.MaxCharges - ent.Comp.CurrentCharges;
+        var itemsNeeded = (int)Math.Ceiling(chargesCanAdd / chargesPerItem);
+        var itemsToConsume = Math.Min(itemsNeeded, stack.Count);
+
+        if (itemsToConsume == 0)
+            return;
+
+        if (!_stack.Use(args.Used, itemsToConsume, stack))
+            return;
+
+        var actualChargesAdded = (int)Math.Floor(itemsToConsume * chargesPerItem);
+
+        var roomLeft = ent.Comp.MaxCharges - ent.Comp.CurrentCharges;
+        actualChargesAdded = Math.Min(actualChargesAdded, roomLeft);
+
+        ent.Comp.CurrentCharges += actualChargesAdded;
+
+        var message = Loc.GetString("consumable-ammo-charged", ("chargesAdded", actualChargesAdded), ("currentCharges", ent.Comp.CurrentCharges), ("maxCharges", ent.Comp.MaxCharges));
+        _popup.PopupPredicted(message, ent.Owner, args.User);
+
+        args.Handled = true;
+        Dirty(ent.Owner, ent.Comp);
+    }
+
+    private void OnShotAttempted(Entity<ConsumableAmmoComponent> ent, ref ShotAttemptedEvent args)
+    {
+        if (args.Cancelled)
+            return;
+
+        if (ent.Comp.CurrentCharges < ent.Comp.ChargesPerShot)
         {
-            if (args.Cancelled)
-            {
-                return;
-            }
-
-            if (ammo.CurrentCharges < ammo.ChargesPerShot)
-            {
-                args.Cancel();
-                return;
-            }
+            args.Cancel();
+            return;
         }
+    }
 
-        private void OnTakeAmmo(EntityUid uid, ConsumableAmmoComponent ammo, ref TakeAmmoEvent args)
+    private void OnTakeAmmo(Entity<ConsumableAmmoComponent> ent, ref TakeAmmoEvent args)
+    {
+        if (ent.Comp.CurrentCharges < args.Shots * ent.Comp.ChargesPerShot)
         {
-            if (ammo.CurrentCharges < args.Shots * ammo.ChargesPerShot)
-            {
-                args.Reason = Loc.GetString("plasma-cutter-empty");
-                return;
-            }
-            ammo.CurrentCharges -= args.Shots * ammo.ChargesPerShot;
-            for (var i = 0; i < args.Shots; i++)
-            {
-                var projectile = Spawn(ammo.ProjectilePrototypeId, args.Coordinates);
-                if (!TryComp<AmmoComponent>(projectile, out var ammoComp))
-                {
-                    continue;
-                }
-                args.Ammo.Add((projectile, ammoComp));
-            }
-            Dirty(uid, ammo);
+            args.Reason = Loc.GetString("consumable-ammo-empty");
+            return;
         }
-
-        private void OnExamine(EntityUid uid, ConsumableAmmoComponent ammo, ref ExaminedEvent args)
+        ent.Comp.CurrentCharges -= args.Shots * ent.Comp.ChargesPerShot;
+        for (var i = 0; i < args.Shots; i++)
         {
-            args.PushMarkup(Loc.GetString("charges-count-text", ("chargesText", ammo.CurrentCharges)));
+            var projectile = Spawn(ent.Comp.ProjectilePrototypeId, args.Coordinates);
+            if (!TryComp<AmmoComponent>(projectile, out var ammoComp))
+                continue;
+            args.Ammo.Add((projectile, ammoComp));
         }
+        Dirty(ent.Owner, ent.Comp);
+    }
+
+    private void OnExamine(Entity<ConsumableAmmoComponent> ent, ref ExaminedEvent args)
+    {
+        args.PushMarkup(Loc.GetString("charges-count-text", ("chargesText", ent.Comp.CurrentCharges)));
     }
 }
