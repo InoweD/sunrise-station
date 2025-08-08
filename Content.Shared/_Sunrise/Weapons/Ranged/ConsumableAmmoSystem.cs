@@ -4,6 +4,10 @@ using Content.Shared.Popups;
 using Content.Shared.Stacks;
 using Content.Shared.Weapons.Ranged.Components;
 using Content.Shared.Weapons.Ranged.Events;
+using Robust.Shared.Player;
+using Robust.Shared.Audio;
+using Content.Shared.Weapons.Melee;
+using Robust.Shared.Audio.Systems;
 
 namespace Content.Shared._Sunrise.Weapons.Ranged;
 
@@ -11,6 +15,7 @@ public sealed class ConsumableAmmoSystem : EntitySystem
 {
     [Dependency] private readonly SharedPopupSystem _popup = default!;
     [Dependency] private readonly SharedStackSystem _stack = default!;
+    [Dependency] private readonly SharedAudioSystem _audio = default!;
 
     public override void Initialize()
     {
@@ -68,6 +73,8 @@ public sealed class ConsumableAmmoSystem : EntitySystem
         actualChargesAdded = Math.Min(actualChargesAdded, roomLeft);
 
         ent.Comp.CurrentCharges += actualChargesAdded;
+        if (ent.Comp.LoadSound != null)
+            _audio.PlayPredicted(ent.Comp.LoadSound, ent.Owner, args.User);
 
         var message = Loc.GetString("consumable-ammo-charged", ("chargesAdded", actualChargesAdded), ("currentCharges", ent.Comp.CurrentCharges), ("maxCharges", ent.Comp.MaxCharges));
         _popup.PopupPredicted(message, ent.Owner, args.User);
@@ -84,7 +91,21 @@ public sealed class ConsumableAmmoSystem : EntitySystem
         if (ent.Comp.CurrentCharges < ent.Comp.ChargesPerShot)
         {
             args.Cancel();
+            if (!ent.Comp.PopupShownOnEmpty)
+            {
+                ent.Comp.PopupShownOnEmpty = true;
+                _popup.PopupPredicted(Loc.GetString("consumable-ammo-empty"), ent.Owner, args.User);
+                if (ent.Comp.EmptySound != null)
+                    _audio.PlayPredicted(ent.Comp.EmptySound, ent.Owner, args.User);
+                Dirty(ent.Owner, ent.Comp);
+            }
             return;
+        }
+
+        if (ent.Comp.PopupShownOnEmpty)
+        {
+            ent.Comp.PopupShownOnEmpty = false;
+            Dirty(ent.Owner, ent.Comp);
         }
     }
 

@@ -1,3 +1,4 @@
+using Robust.Shared.Audio;
 using Robust.Shared.GameStates;
 using Robust.Shared.Prototypes;
 namespace Content.Shared._Sunrise.Weapons.Ranged;
@@ -26,4 +27,10 @@ public sealed partial class ConsumableAmmoComponent : Component
     public float ItemsPerCharge = 1f;
     [DataField, ViewVariables]
     public EntProtoId ProjectilePrototypeId;
+    [DataField, ViewVariables]
+    public SoundSpecifier? LoadSound;
+    [DataField, ViewVariables]
+    public SoundSpecifier? EmptySoundl;
+    [DataField, ViewVariables]
+    public bool PopupShownOnEmpty = false;
 }

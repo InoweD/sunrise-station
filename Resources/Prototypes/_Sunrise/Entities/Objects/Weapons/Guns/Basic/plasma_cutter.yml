@@ -28,6 +28,10 @@
     multiplier: 2
     itemsPerCharge: 1
     projectilePrototypeId: BulletPlasma
+    loadSound:
+      path: /Audio/Weapons/Guns/MagIn/kinetic_reload.ogg
+    emptySound:
+      path: /Audio/Weapons/Guns/Empty/empty.ogg
   - type: GunWieldBonus
     minAngle: -23
     maxAngle: -23
