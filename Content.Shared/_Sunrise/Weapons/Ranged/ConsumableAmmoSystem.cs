@@ -35,11 +35,7 @@ public sealed class ConsumableAmmoSystem : EntitySystem
             return;
 
         var itemProtoId = Prototype(args.Used);
-
-        if (itemProtoId == null)
-            return;
-
-        if (!ent.Comp.LoadableItemIds.Contains(itemProtoId) && !ent.Comp.MultiplierLoadableItemIds.Contains(itemProtoId))
+        if (itemProtoId == null || !ent.Comp.LoadableItems.TryGetValue(itemProtoId, out var multiplier))
             return;
 
         if (ent.Comp.CurrentCharges >= ent.Comp.MaxCharges)
@@ -49,11 +45,7 @@ public sealed class ConsumableAmmoSystem : EntitySystem
             return;
         }
 
-        var chargesPerItem = 1.0f / ent.Comp.ItemsPerCharge;
-
-        if (ent.Comp.MultiplierLoadableItemIds.Contains(itemProtoId))
-            chargesPerItem *= ent.Comp.Multiplier;
-
+        var chargesPerItem = (1.0f / ent.Comp.ItemsPerCharge) * multiplier;
         var chargesCanAdd = ent.Comp.MaxCharges - ent.Comp.CurrentCharges;
         var itemsNeeded = (int)Math.Ceiling(chargesCanAdd / chargesPerItem);
         var itemsToConsume = Math.Min(itemsNeeded, stack.Count);
@@ -62,17 +54,22 @@ public sealed class ConsumableAmmoSystem : EntitySystem
             return;
 
         var potentialChargesAdded = (int)Math.Floor(itemsToConsume * chargesPerItem);
-
         if (potentialChargesAdded <= 0)
             return;
+
         if (!_stack.Use(args.Used, itemsToConsume, stack))
             return;
 
-        var actualChargesAdded = potentialChargesAdded;
-        var roomLeft = ent.Comp.MaxCharges - ent.Comp.CurrentCharges;
-        actualChargesAdded = Math.Min(actualChargesAdded, roomLeft);
-
+        var actualChargesAdded = Math.Min(potentialChargesAdded, chargesCanAdd);
         ent.Comp.CurrentCharges += actualChargesAdded;
+
+        // это чтоб не спамило "нет зарядов" при попытке стрелять без них
+        if (ent.Comp.PopupShownOnEmpty)
+        {
+            ent.Comp.PopupShownOnEmpty = false;
+            Dirty(ent);
+        }
+
         if (ent.Comp.LoadSound != null)
             _audio.PlayPredicted(ent.Comp.LoadSound, ent.Owner, args.User);
 
@@ -80,8 +77,9 @@ public sealed class ConsumableAmmoSystem : EntitySystem
         _popup.PopupPredicted(message, ent.Owner, args.User);
 
         args.Handled = true;
-        Dirty(ent.Owner, ent.Comp);
+        Dirty(ent);
     }
+
 
     private void OnShotAttempted(Entity<ConsumableAmmoComponent> ent, ref ShotAttemptedEvent args)
     {
@@ -95,9 +93,11 @@ public sealed class ConsumableAmmoSystem : EntitySystem
             {
                 ent.Comp.PopupShownOnEmpty = true;
                 _popup.PopupPredicted(Loc.GetString("consumable-ammo-empty"), ent.Owner, args.User);
+
                 if (ent.Comp.EmptySound != null)
                     _audio.PlayPredicted(ent.Comp.EmptySound, ent.Owner, args.User);
-                Dirty(ent.Owner, ent.Comp);
+
+                Dirty(ent);
             }
             return;
         }
@@ -105,7 +105,7 @@ public sealed class ConsumableAmmoSystem : EntitySystem
         if (ent.Comp.PopupShownOnEmpty)
         {
             ent.Comp.PopupShownOnEmpty = false;
-            Dirty(ent.Owner, ent.Comp);
+            Dirty(ent);
         }
     }
 
@@ -124,7 +124,7 @@ public sealed class ConsumableAmmoSystem : EntitySystem
                 continue;
             args.Ammo.Add((projectile, ammoComp));
         }
-        Dirty(ent.Owner, ent.Comp);
+        Dirty(ent);
     }
 
     private void OnExamine(Entity<ConsumableAmmoComponent> ent, ref ExaminedEvent args)

@@ -18,20 +18,18 @@
     currentCharges: 30
     maxCharges: 30
     chargesPerShot: 1
-    loadableItemIds:
-      - SheetPlasma1
-      - SheetPlasma10
-      - SheetPlasma
-    multiplierLoadableItemIds:
-      - PlasmaOre1
-      - PlasmaOre
-    multiplier: 2
     itemsPerCharge: 1
     projectilePrototypeId: BulletPlasma
     loadSound:
       path: /Audio/Weapons/Guns/MagIn/kinetic_reload.ogg
     emptySound:
       path: /Audio/Weapons/Guns/Empty/empty.ogg
+    loadableItems:
+      SheetPlasma1: 1
+      SheetPlasma10: 1
+      SheetPlasma: 1
+      PlasmaOre1: 2
+      PlasmaOre: 2
   - type: GunWieldBonus
     minAngle: -23
     maxAngle: -23

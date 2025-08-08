@@ -7,30 +7,34 @@ public sealed partial class ConsumableAmmoComponent : Component
 {
     [DataField, ViewVariables, AutoNetworkedField]
     public int CurrentCharges;
+
     [DataField, ViewVariables]
     public int MaxCharges = 30;
-    [DataField, ViewVariables]
-    public List<EntProtoId> LoadableItemIds = [];
+
     /// <summary>
-    /// предметы с мультипликатором, то есть при использовании их количество полученных с них зарядов умножается на Multipler
+    /// предметы(EntProtoId) с мультипликатором(int), то есть при использовании их количество полученных с них(EntProtoId) зарядов умножается на int
     /// </summary>
     [DataField, ViewVariables]
-    public List<EntProtoId> MultiplierLoadableItemIds = [];
-    [DataField, ViewVariables]
-    public int Multiplier = 2;
+    public Dictionary<EntProtoId, int> LoadableItems = new Dictionary<EntProtoId, int>();
+
     [DataField, ViewVariables, AutoNetworkedField]
     public int ChargesPerShot = 1;
+
     /// <summary>
     /// отношение затрат материала на один заряд
     /// </summary>
     [DataField, ViewVariables]
     public float ItemsPerCharge = 1f;
+
     [DataField, ViewVariables]
     public EntProtoId ProjectilePrototypeId;
+
     [DataField, ViewVariables]
     public SoundSpecifier? LoadSound;
+
     [DataField, ViewVariables]
-    public SoundSpecifier? EmptySoundl;
-    [DataField, ViewVariables]
+    public SoundSpecifier? EmptySound;
+
+    [DataField]
     public bool PopupShownOnEmpty = false;
 }
